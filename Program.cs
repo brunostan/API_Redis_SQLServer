@@ -5,15 +5,16 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Redis Cache
-builder.Services.AddStackExchangeRedisCache(options
-    =>
-{ options.Configuration = "localhost:6379"; });
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = "localhost:6379";
+    options.InstanceName = "SampleInstance";
+});
 
 // SQL Server BD
-builder.Services.AddDbContext<DatabaseContext>(options
-    => options
-        .UseSqlServer(builder.Configuration
-            .GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<DatabaseContext>(options =>
+    options.UseSqlServer(builder.Configuration
+        .GetConnectionString("DefaultConnection")));
 
 // Registrar o serviço PopulateDatabase
 builder.Services.AddTransient<PopulateDatabase>();
