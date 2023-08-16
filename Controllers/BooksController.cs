@@ -2,6 +2,9 @@
 using BookStore.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
+using NuGet.Protocol;
+using System.Text.Json;
 
 namespace BookStore.Controllers
 {
@@ -9,10 +12,12 @@ namespace BookStore.Controllers
     [ApiController]
     public class BooksController : ControllerBase
     {
+        private readonly IDistributedCache _cache;
         private readonly DatabaseContext _context;
 
-        public BooksController(DatabaseContext context)
+        public BooksController(IDistributedCache cache, DatabaseContext context)
         {
+            _cache = cache;
             _context = context;
         }
 
@@ -35,12 +40,29 @@ namespace BookStore.Controllers
             {
                 return NotFound();
             }
-            var book = await _context.Books.FindAsync(id);
+
+            // Redis
+            string key = $"Book: {id}";
+            string? bookString = await _cache.GetStringAsync(key);
+
+            if (bookString != null)
+            {
+                Book _book = JsonSerializer.Deserialize<Book>(bookString)!;
+                await Console.Out.WriteLineAsync($"\n[Cache Redis] \nKey = \"{key}\" \nData = {_book.ToJson()}\n");
+
+                return Ok(_book);
+            }
+
+            //SQL Server
+            Book? book = await _context.Books.FindAsync(id);
 
             if (book == null)
             {
                 return NotFound();
             }
+
+            bookString = JsonSerializer.Serialize(book);
+            await _cache.SetStringAsync(key, bookString);
 
             return book;
         }

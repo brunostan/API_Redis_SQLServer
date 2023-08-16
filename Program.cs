@@ -4,6 +4,10 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddStackExchangeRedisCache(options
+    =>
+{ options.Configuration = "localhost:6379"; });
+
 builder.Services.AddDbContext<DatabaseContext>(options
     => options
         .UseSqlServer(builder.Configuration
