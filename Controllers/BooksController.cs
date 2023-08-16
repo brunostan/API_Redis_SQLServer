@@ -29,7 +29,31 @@ namespace BookStore.Controllers
             {
                 return NotFound();
             }
-            return await _context.Books.ToListAsync();
+
+            // Redis
+            string key = "Books: All"; // chave para armazenar e recuperar a lista de todos os livros
+            string? booksString = await _cache.GetStringAsync(key);
+
+            if (booksString != null)
+            {
+                IEnumerable<Book> _books = JsonSerializer.Deserialize<IEnumerable<Book>>(booksString)!;
+                await Console.Out.WriteLineAsync($"\n[Cache Redis] \nKey = \"{key}\" \nData = {_books.ToJson()}\n");
+
+                return Ok(_books);
+            }
+
+            //SQL Server
+            IEnumerable<Book>? books = await _context.Books.ToListAsync();
+
+            if (books == null)
+            {
+                return NotFound();
+            }
+
+            booksString = JsonSerializer.Serialize(books);
+            await _cache.SetStringAsync(key, booksString);
+
+            return Ok(books);
         }
 
         // GET: api/Books/5
@@ -42,7 +66,7 @@ namespace BookStore.Controllers
             }
 
             // Redis
-            string key = $"Book: {id}";
+            string key = $"Book: {id}"; // chave para armazenar e recuperar um livro pelo id
             string? bookString = await _cache.GetStringAsync(key);
 
             if (bookString != null)
@@ -64,7 +88,7 @@ namespace BookStore.Controllers
             bookString = JsonSerializer.Serialize(book);
             await _cache.SetStringAsync(key, bookString);
 
-            return book;
+            return Ok(book);
         }
 
         // PUT: api/Books/5
@@ -82,6 +106,16 @@ namespace BookStore.Controllers
             try
             {
                 await _context.SaveChangesAsync();
+
+                // Redis
+                string key = $"Book: {id}"; // chave para encontrar e substituir o livro no cache
+                string bookString = JsonSerializer.Serialize(book);
+                await _cache.SetStringAsync(key, bookString); // atualiza o livro no cache
+
+                key = "Books: All"; // chave para invalidar a lista de todos os livros no cache
+                await _cache.RemoveAsync(key); // remove a lista do cache para que a próxima chamada da função GetBooks() busque os dados atualizados do banco de dados
+
+
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -94,7 +128,6 @@ namespace BookStore.Controllers
                     throw;
                 }
             }
-
             return NoContent();
         }
 
@@ -109,6 +142,14 @@ namespace BookStore.Controllers
             }
             _context.Books.Add(book);
             await _context.SaveChangesAsync();
+
+            // Redis
+            string key = $"Book: {book.Id}"; // chave para salvar o livro no cache
+            string bookString = JsonSerializer.Serialize(book);
+            await _cache.SetStringAsync(key, bookString); // salva o livro no cache
+
+            key = "Books: All"; // chave para invalidar a lista de todos os livros no cache
+            await _cache.RemoveAsync(key); // remove a lista do cache para que a próxima chamada da função GetBooks() busque os dados atualizados do banco de dados
 
             return CreatedAtAction("GetBook", new { id = book.Id }, book);
         }
@@ -130,6 +171,13 @@ namespace BookStore.Controllers
             _context.Books.Remove(book);
             await _context.SaveChangesAsync();
 
+            // Redis
+            string key = $"Book: {id}"; // chave para encontrar e remover o livro do cache
+            await _cache.RemoveAsync(key); // remove o livro do cache
+
+            key = "Books: All"; // chave para invalidar a lista de todos os livros no cache
+            await _cache.RemoveAsync(key); // remove a lista do cache para que a próxima chamada da função GetBooks() busque os dados atualizados do banco de dados
+
             return NoContent();
         }
 
@@ -139,3 +187,4 @@ namespace BookStore.Controllers
         }
     }
 }
+
