@@ -20,8 +20,9 @@ namespace BookStore.Services
 
         public async Task SetCacheAsync<T>(string key, T data)
         {
+            var options = new DistributedCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromMinutes(1));
             string serializedData = JsonSerializer.Serialize(data);
-            await _cache.SetStringAsync(key, serializedData);
+            await _cache.SetStringAsync(key, serializedData, options);
         }
 
         public async Task RemoveCacheAsync(string key)
