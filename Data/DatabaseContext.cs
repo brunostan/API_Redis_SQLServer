@@ -8,7 +8,6 @@ namespace BookStore.Data
         public DatabaseContext(DbContextOptions<DatabaseContext> options)
             : base(options) { }
 
-        // define your DbSets here, for example:
         public DbSet<Book> Books { get; set; }
     }
 }
